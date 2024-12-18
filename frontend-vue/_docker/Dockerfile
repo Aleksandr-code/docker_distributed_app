@@ -1,4 +1,4 @@
-FROM node:20-alpine as build-stage
+FROM node:20-alpine as base
 
 WORKDIR /var/www/app/frontend
 
@@ -6,17 +6,23 @@ COPY ../package*.json /var/www/app/frontend/
 
 RUN npm install
 
-
-
 COPY ../ .
+
+FROM base AS dev
+
+EXPOSE 80
+
+CMD ["npm", "run", "dev"]
+
+FROM base AS build
 
 RUN npm run build
 
-FROM nginx:1.27 as production-stage
+FROM nginx:1.27-alpine as prod
 
 COPY _docker/nginx/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build-stage /var/www/app/frontend/dist /usr/share/nginx/html
+COPY --from=build /var/www/app/frontend/dist /usr/share/nginx/html
 
-EXPOSE 3000
+EXPOSE 80
 
 CMD [ "nginx", "-g", "daemon off;" ]

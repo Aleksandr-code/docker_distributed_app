@@ -18,23 +18,50 @@ services:
     build:
       context: ./frontend-vue
       dockerfile: _docker/Dockerfile
+      target: dev
+    restart: unless-stopped
+    volumes:
+      - /var/www/app/frontend/node_modules
+      - ./frontend-vue:/var/www/app/frontend
+    ports:
+    - 80:80
     depends_on:
       - backend
     container_name: "frontend_service"
 
   backend:
     build:
+      args:
+        user: test
+        uid: 1000
       context: ./backend-laravel
       dockerfile: _docker/app/Dockerfile
+    command: sh -c "./wait-for-it.sh db:3306 -t 30 && php-fpm"
+    restart: unless-stopped
     volumes:
       - ./backend-laravel:/var/www/app/backend
+    ports:
+    - 5555:9000
     depends_on:
+      - migrate
       - db
     container_name: "backend_service"
 
+  migrate:
+    build:
+      args:
+        user: test
+        uid: 1000
+      context: ./backend-laravel
+      dockerfile: _docker/app/Dockerfile
+    command: sh -c "./wait-for-it.sh db:3306 -t 30 && php /var/www/app/backend/artisan migrate --force"
+    restart: no
+    depends_on:
+      - db
+
   db:
     image: mysql:8.0
-    restart: always
+    restart: unless-stopped
     volumes:
       - dbdata:/var/lib/mysql
     ports:
